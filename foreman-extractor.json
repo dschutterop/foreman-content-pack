@@ -1,0 +1,229 @@
+{
+  "id" : null,
+  "name" : "Foreman Host Orchestration  Content Pack",
+  "description" : "# Foreman Content Pack\r\n\r\nThis content pack provides you with:\r\n - Foreman: Host actions stream\r\n - Foreman: Host create actions\r\n - Foreman: Host delete actions\r\n - Foreman: Host modify actions\r\n \r\nForeman ( http://www.theforeman.org ) is a complete lifecycle management tool for physical and virtual servers and provides a plugin named foreman_hooks with which you can trigger events when creating, updating and deleting hosts.\r\n\r\nThe Foreman hook script specified below provides the possibility to log the Foreman host actions to Graylog2, it can be downloaded ( https://github.com/dschutterop/graylog2/tree/master/Foreman_hooks ) as well.\r\n\r\nIf you place the script in the Foreman hooks directory (as described in the script itself) your Foreman host orchestration events will be logged to Graylog2.\r\n\r\n#logToGraylog2.sh:\r\n```sh\r\n#!/bin/bash\r\n#\r\n# __Requirements__\r\n#\r\n# In order for this hook to work you should have:\r\n#\r\n# Foreman running (duh)\r\n# Foreman hooks installed (Foreman plugin)\r\n# Graylog2 running with a GELF/HTTP input\r\n# curl somewhere in your path\r\n#\r\n# __Summary__\r\n#\r\n# This foreman hook logs creation/modification\r\n# actions of a host to graylog2 for administration\r\n# purposes.\r\n#\r\n# Please set your graylog2 host and GELF HTTP port\r\n# where the <logHost=graylog2.example.com>\r\n# and logPort='12201' reside\r\n#\r\n# Parameters: $1 : Set by Foreman, the hook that\r\n# is called (and then transformed\r\n# into the $action variable)\r\n# $2 : Set by Foreman, the hostname\r\n# on which the action has\r\n# taken place\r\n#\r\n# This foreman hook should be placed in\r\n# ~foreman/config/hooks/host/managed and could be\r\n# symbolically linked to the following events\r\n# (directories):\r\n# * after_build\r\n# * before_provision\r\n# * create\r\n# * destroy\r\n# * logToGraylog2.sh\r\n# * update\r\n#\r\n# __What does it log?__\r\n#\r\n# This script logs the following fields to your\r\n# graylog2 host:\r\n#\r\n# short_message (mandatory) information on the\r\n# action that was performed by\r\n# Foreman.\r\n# host (mandatory)\r\n# facility (mandatory)\r\n# _foremanAction (content of the $1 variable)\r\n# _foremanHost (content of the $2 variable)\r\n# _foremanCount (Numeric field, easier to get\r\n# statistics on Foreman actions)\r\n#\r\n# __Author__\r\n# D. Schutterop\r\n# daniel@schutterop.nl\r\n# 2014\r\n#\r\n#\r\nlogHost='graylog2.example.com'\r\nlogPort='12201'\r\nif [ -z $1 ]; then\r\necho 'Foreman did not pass the first parameter'\r\nelse\r\nif [ -z $2 ]; then\r\necho 'Foreman did not pass the second parameter'\r\nelse\r\nhostname=`hostname -f`\r\ncase $1 in\r\n'create') action='created'\r\n;;\r\n'update') action='updated'\r\n;;\r\n'destroy') action='destroyed'\r\n;;\r\n'after_build') action='put into build mode'\r\n;;\r\n'before_provision') action='installed, it is now finished and can now be provisioned'\r\n;;\r\n*) action='doing some incredible stuff I have not documented or implemented yet... Sorry'\r\n;;\r\nesac\r\n$(which curl) -XPOST http://$logHost:$logPort/gelf -p0 -d \"{\r\n\\\"short_message\\\":\\\"Foreman: Host ${2} was just ${action}\\\",\r\n\\\"host\\\":\\\"${hostname}\\\",\r\n\\\"facility\\\":\\\"info\\\",\r\n\\\"_foremanAction\\\":\\\"${1}\\\",\r\n\\\"_foremanHost\\\":\\\"${2}\\\",\r\n\\\"_foremanCount\\\":1\r\n}\"\r\nfi\r\nfi\r\n``` \r\n\r\nIt's easy as Pi.",
+  "category" : "Orchestration",
+  "inputs" : [ {
+    "title" : "GELF HTTP messages",
+    "configuration" : {
+      "recv_buffer_size" : 1048576,
+      "port" : 12201,
+      "enable_cors" : true,
+      "bind_address" : "0.0.0.0"
+    },
+    "type" : "org.graylog2.inputs.gelf.http.GELFHttpInput",
+    "global" : true,
+    "extractors" : [ ],
+    "static_fields" : { }
+  } ],
+  "streams" : [ {
+    "id" : "547736f5e4b01ae1fb5a4c70",
+    "title" : "Foreman: Host actions",
+    "description" : "Foreman host create, modify & destroy actions",
+    "disabled" : false,
+    "outputs" : [ ],
+    "stream_rules" : [ {
+      "type" : "GREATER",
+      "field" : "foremanCount",
+      "value" : "0",
+      "inverted" : false
+    } ]
+  }, {
+    "id" : "54772c8ae4b01ae1fb5a41ab",
+    "title" : "Foreman: Host modify actions",
+    "description" : "Foreman host modify",
+    "disabled" : false,
+    "outputs" : [ ],
+    "stream_rules" : [ {
+      "type" : "EXACT",
+      "field" : "foremanAction",
+      "value" : "update",
+      "inverted" : false
+    } ]
+  }, {
+    "id" : "54773378e4b0aa62190a8416",
+    "title" : "Foreman: Host delete actions",
+    "description" : "Foreman host delete",
+    "disabled" : false,
+    "outputs" : [ ],
+    "stream_rules" : [ {
+      "type" : "EXACT",
+      "field" : "foremanAction",
+      "value" : "destroy",
+      "inverted" : false
+    }, {
+      "type" : "PRESENCE",
+      "field" : "foremanAction",
+      "value" : "",
+      "inverted" : false
+    } ]
+  }, {
+    "id" : "547729c9e4b01ae1fb5a3ed0",
+    "title" : "Foreman: Host create actions",
+    "description" : "Foreman host create",
+    "disabled" : false,
+    "outputs" : [ ],
+    "stream_rules" : [ {
+      "type" : "PRESENCE",
+      "field" : "foremanAction",
+      "value" : "",
+      "inverted" : false
+    }, {
+      "type" : "EXACT",
+      "field" : "foremanAction",
+      "value" : "create",
+      "inverted" : false
+    } ]
+  } ],
+  "outputs" : [ ],
+  "dashboards" : [ {
+    "title" : "Foreman",
+    "description" : "Foreman actions",
+    "dashboard_widgets" : [ {
+      "description" : "Hosts created (last 30 days)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 2592000
+        },
+        "stream_id" : "547729c9e4b01ae1fb5a3ed0"
+      },
+      "col" : 1,
+      "row" : 3,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts created (Last 7 days)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 604800
+        },
+        "stream_id" : "547729c9e4b01ae1fb5a3ed0"
+      },
+      "col" : 1,
+      "row" : 2,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts created (Last day)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 86400
+        },
+        "stream_id" : "547729c9e4b01ae1fb5a3ed0"
+      },
+      "col" : 1,
+      "row" : 1,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts modified (Last 30 days)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 2592000
+        },
+        "stream_id" : "54772c8ae4b01ae1fb5a41ab"
+      },
+      "col" : 2,
+      "row" : 3,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts modified (Last 7 days)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 604800
+        },
+        "stream_id" : "54772c8ae4b01ae1fb5a41ab"
+      },
+      "col" : 2,
+      "row" : 2,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts modified (Last day)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 86400
+        },
+        "stream_id" : "54772c8ae4b01ae1fb5a41ab"
+      },
+      "col" : 2,
+      "row" : 1,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts deleted (Last 30 days)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 2592000
+        },
+        "stream_id" : "54773378e4b0aa62190a8416"
+      },
+      "col" : 3,
+      "row" : 3,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts deleted (Last 7 days)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 604800
+        },
+        "stream_id" : "54773378e4b0aa62190a8416"
+      },
+      "col" : 3,
+      "row" : 2,
+      "cache_time" : 10
+    }, {
+      "description" : "Hosts deleted (Last day)",
+      "type" : "STREAM_SEARCH_RESULT_COUNT",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 86400
+        },
+        "stream_id" : "54773378e4b0aa62190a8416"
+      },
+      "col" : 3,
+      "row" : 1,
+      "cache_time" : 10
+    }, {
+      "description" : "Foreman Host actions (last 30 days)",
+      "type" : "FIELD_CHART",
+      "configuration" : {
+        "query" : "*",
+        "timerange" : {
+          "type" : "relative",
+          "range" : 2592000
+        },
+        "field" : "foremanCount",
+        "valuetype" : "total",
+        "renderer" : "line",
+        "interpolation" : "linear",
+        "interval" : "day",
+        "stream_id" : "547736f5e4b01ae1fb5a4c70"
+      },
+      "col" : 1,
+      "row" : 4,
+      "cache_time" : 10
+    } ]
+  } ]
+}
